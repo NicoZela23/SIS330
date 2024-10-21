@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 
 transform = transforms.Compose([
     transforms.Resize(256),
-    transforms.CenterCrop(224),
+    transforms.CenterCrop(256),
     transforms.ToTensor(),
 ])
 
