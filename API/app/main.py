@@ -1,9 +1,10 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
-from app.services.prediction_service import PredictionService
-from app.schemas.prediction import PredictionResponse
+from services.prediction_service import PredictionService
+from schemas.prediction import PredictionResponse
+from config.config import DEBUG, HOST, PORT
 
-app = FastAPI()
+app = FastAPI(debug=DEBUG)
 prediction_service = PredictionService()
 
 @app.post("/predict", response_model=PredictionResponse)
@@ -16,4 +17,4 @@ async def predict(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=HOST, port=PORT)

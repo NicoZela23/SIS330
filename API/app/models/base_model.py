@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import accuracy
+from models.utils import accuracy
 
 class ImageClassificationBase(nn.Module):
-    
     def training_step(self, batch):
         images, labels = batch
         out = self(images)

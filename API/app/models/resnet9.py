@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from .base_model import ImageClassificationBase
-from .utils import ConvBlock
+from models.base_model import ImageClassificationBase
+from models.utils import ConvBlock
 from config.config import MODEL_PATH
 
 class ResNet9(ImageClassificationBase):

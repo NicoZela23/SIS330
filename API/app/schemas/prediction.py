@@ -9,9 +9,8 @@ class PredictionResult(BaseModel):
 
 class PredictionResponse(BaseModel):
     prediction: PredictionResult
-    top_3_predictions: List[PredictionResult]
 
-def parse_class_name(class_name: str) -> (str, str):
+def parse_class_name(class_name: str) -> tuple[str, str]:
     parts = class_name.split('___')
     plant = parts[0].replace('_', ' ')
     condition = parts[1].replace('_', ' ') if len(parts) > 1 else 'Unknown'
