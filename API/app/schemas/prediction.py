@@ -7,8 +7,20 @@ class PredictionResult(BaseModel):
     condition: str
     confidence: float
 
+class PredictionResponseMulti(BaseModel):
+    filename: str
+    prediction: PredictionResult
+
 class PredictionResponse(BaseModel):
     prediction: PredictionResult
+
+class PlantHealthSummary(BaseModel):
+    total_plants: int
+    healthy_count: int
+    diseased_count: int
+    healthy_percentage: float
+    diseased_percentage: float
+    predictions: List[PredictionResponseMulti]
 
 def parse_class_name(class_name: str) -> tuple[str, str]:
     parts = class_name.split('___')
