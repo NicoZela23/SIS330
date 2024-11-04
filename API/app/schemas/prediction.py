@@ -20,7 +20,8 @@ class PlantHealthSummary(BaseModel):
     diseased_count: int
     healthy_percentage: float
     diseased_percentage: float
-    predictions: List[PredictionResponseMulti]
+    condition: str
+    plant: str
 
 def parse_class_name(class_name: str) -> tuple[str, str]:
     parts = class_name.split('___')

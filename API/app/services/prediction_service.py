@@ -61,6 +61,11 @@ class PredictionService:
 
         healthy_percentage = (healthy_count / total_plants) * 100
         diseased_percentage = (diseased_count / total_plants) * 100
+        top_prediction = predictions[0]
+        prediction_result = top_prediction["prediction"]
+        plant = prediction_result.plant
+        condition = prediction_result.condition
+
 
         return PlantHealthSummary(
             total_plants=total_plants,
@@ -68,5 +73,6 @@ class PredictionService:
             diseased_count=diseased_count,
             healthy_percentage=healthy_percentage,
             diseased_percentage=diseased_percentage,
-            predictions=predictions
+            condition= condition,
+            plant=plant 
         )

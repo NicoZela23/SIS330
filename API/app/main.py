@@ -5,9 +5,19 @@ from schemas.prediction import PredictionResponse, PlantHealthSummary
 from typing import List
 from fastapi import UploadFile
 from config.config import DEBUG, HOST, PORT
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(debug=DEBUG)
 prediction_service = PredictionService()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(file: UploadFile = File(...)):
@@ -17,7 +27,7 @@ async def predict(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
-@app.post("/analize-plats", response_model=PlantHealthSummary)
+@app.post("/analize-plants", response_model=PlantHealthSummary)
 async def analyze_plants(files: List[UploadFile] = File(...)):
     try:
         if not files or len(files) > 10:
