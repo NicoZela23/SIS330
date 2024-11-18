@@ -1,3 +1,4 @@
+import httpx
 import torch
 from typing import List
 from collections import Counter
@@ -28,6 +29,21 @@ class PredictionService:
             condition=condition,
             confidence=confidence
         )
+    
+    async def _control_servo(self, diseased_percentage: float) -> None:
+        # Convert percentage to angle (1000-10000 range)
+        angle = int((diseased_percentage * 100) / 1.7)  # Scale factor can be adjusted
+        nodemcu_url = "http://192.168.71.147/servo/command"
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(
+                    nodemcu_url,
+                    json={"angle": angle},
+                    timeout=angle/1000 + 5.0
+                )
+            except Exception as e:
+                print(f"Servo control error: {str(e)}")
     
     async def analyze_batch(self, files: List[UploadFile]) -> PlantHealthSummary:
         if len(files) > 10:
@@ -67,12 +83,10 @@ class PredictionService:
 
         most_common_plant = str(Counter(plant_list).most_common(1)[0][0])
         non_healthy_conditions = [cond for cond in condition_list if cond != "healthy"]
-        if non_healthy_conditions:
-            most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0])
-        else:
-            most_common_condition = "healthy"
+        most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0]) if non_healthy_conditions else "healthy"
 
-
+        # Control servo based on disease percentage
+        await self._control_servo(diseased_percentage)
 
         return PlantHealthSummary(
             total_plants=total_plants,
@@ -80,6 +94,6 @@ class PredictionService:
             diseased_count=diseased_count,
             healthy_percentage=healthy_percentage,
             diseased_percentage=diseased_percentage,
-            condition= most_common_condition,
-            plant= most_common_plant 
+            condition=most_common_condition,
+            plant=most_common_plant 
         )

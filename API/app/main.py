@@ -1,3 +1,4 @@
+import httpx
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from services.prediction_service import PredictionService
@@ -7,6 +8,7 @@ from fastapi import UploadFile
 from config.config import DEBUG, HOST, PORT
 from fastapi.middleware.cors import CORSMiddleware
 from routers.websocket_router import router
+from schemas.servo_command import ServoCommand
 
 app = FastAPI(debug=DEBUG)
 prediction_service = PredictionService()
@@ -41,7 +43,7 @@ async def analyze_plants(files: List[UploadFile] = File(...)):
         return summary
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=HOST, port=PORT)
