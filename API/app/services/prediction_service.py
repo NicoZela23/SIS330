@@ -1,5 +1,6 @@
 import torch
 from typing import List
+from collections import Counter
 from models.resnet9 import load_plant_disease_model
 from utils.image_utils import transform_image
 from config.config import IN_CHANNELS, NUM_DISEASES, CLASS_NAMES
@@ -10,7 +11,7 @@ class PredictionService:
     def __init__(self):
         self.model = load_plant_disease_model(IN_CHANNELS, NUM_DISEASES)
 
-    async def predict(self, file) -> PredictionResult:  # Note: Changed return type
+    async def predict(self, file) -> PredictionResult:
         image = await transform_image(file)
         with torch.no_grad():
             xb = image.unsqueeze(0)
@@ -21,7 +22,6 @@ class PredictionService:
         plant, condition = parse_class_name(class_name)
         confidence = torch.nn.functional.softmax(outputs, dim=1)[0][preds[0]].item()
 
-        # Return PredictionResult directly, not wrapped in a dict
         return PredictionResult(
             class_name=class_name,
             plant=plant,
@@ -36,35 +36,42 @@ class PredictionService:
         predictions = []
         healthy_count = 0
         diseased_count = 0
+        plant_list = []
+        condition_list = []
 
         for file in files:
             try:
-                prediction = await self.predict(file)  # Now returns PredictionResult directly
+                prediction = await self.predict(file)
                 predictions.append({
                     "filename": file.filename,
                     "prediction": prediction
                 })
+
+                plant_list.append(prediction.plant)
+                condition_list.append(prediction.condition)
                 
-                # Now we can access condition directly
                 if prediction.condition.lower() == "healthy":
                     healthy_count += 1
                 else:
                     diseased_count += 1
             except Exception as e:
-                # Optional: Handle individual file prediction errors
                 print(f"Error processing file {file.filename}: {str(e)}")
                 continue
 
-        total_plants = len(predictions)  # Use actual successful predictions
+        total_plants = len(predictions)
         if total_plants == 0:
             raise ValueError("No valid predictions were made")
 
         healthy_percentage = (healthy_count / total_plants) * 100
         diseased_percentage = (diseased_count / total_plants) * 100
-        top_prediction = predictions[0]
-        prediction_result = top_prediction["prediction"]
-        plant = prediction_result.plant
-        condition = prediction_result.condition
+
+        most_common_plant = str(Counter(plant_list).most_common(1)[0][0])
+        non_healthy_conditions = [cond for cond in condition_list if cond != "healthy"]
+        if non_healthy_conditions:
+            most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0])
+        else:
+            most_common_condition = "healthy"
+
 
 
         return PlantHealthSummary(
@@ -73,6 +80,6 @@ class PredictionService:
             diseased_count=diseased_count,
             healthy_percentage=healthy_percentage,
             diseased_percentage=diseased_percentage,
-            condition= condition,
-            plant=plant 
+            condition= most_common_condition,
+            plant= most_common_plant 
         )
