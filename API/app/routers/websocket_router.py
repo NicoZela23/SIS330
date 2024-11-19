@@ -1,8 +1,6 @@
-# routers/websocket_router.py
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.heatmap_service import HeatmapService
 from utils.frame_processing import FrameProcessor
-import json
 
 router = APIRouter()
 heatmap_service = HeatmapService()
