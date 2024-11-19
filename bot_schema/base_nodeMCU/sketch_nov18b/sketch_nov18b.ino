@@ -1,7 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ArduinoJson.h>
-#define controlPin 12
+#define pumpOnePin 12
+#define pumpTwoPin 14
 
 const char* ssid = "xzt";
 const char* password = "#10315168#";
@@ -12,8 +13,10 @@ volatile bool pumpActive = false;
 
 void setup() {
     Serial.begin(115200);
-    pinMode(controlPin, OUTPUT);
-    digitalWrite(controlPin, LOW);
+    pinMode(pumpOnePin, OUTPUT);
+    pinMode(pumpTwoPin, OUTPUT);
+    digitalWrite(pumpOnePin, LOW);
+    digitalWrite(pumpTwoPin, LOW);
     
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
@@ -24,7 +27,7 @@ void setup() {
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
 
-    server.on("/servo/command", HTTP_POST, handlePumpControl);
+    server.on("/pump/action", HTTP_POST, handlePumpControl);
     server.begin();
 }
 
@@ -40,16 +43,31 @@ void handlePumpControl() {
         DeserializationError error = deserializeJson(doc, body);
         
         if (!error) {
-            int duration = doc["angle"].as<int>();
-            if (duration >= 1000 && duration <= 10000) {
+            int durationPump1 = doc["mix1"].as<int>();
+            int durationPump2 = doc["mix2"].as<int>();
+            
+            if (durationPump1 >= 1000 && durationPump1 <= 10000 && 
+                durationPump2 >= 1000 && durationPump2 <= 10000) {
+                
                 pumpActive = true;
-                digitalWrite(controlPin, HIGH);
-                Serial.println("Pump ON for " + String(duration) + "ms");
-                server.send(200, "application/json", "{\"status\":\"success\",\"duration\":" + String(duration) + "}");
-                delay(duration);
-                digitalWrite(controlPin, LOW);
+                unsigned long startTime = millis();
+                
+                digitalWrite(pumpOnePin, HIGH);
+                digitalWrite(pumpTwoPin, HIGH);
+                
+                while (millis() - startTime < max(durationPump1, durationPump2)) {
+                    server.handleClient();
+                    if (millis() - startTime >= durationPump1) {
+                        digitalWrite(pumpOnePin, LOW);
+                    }
+                    if (millis() - startTime >= durationPump2) {
+                        digitalWrite(pumpTwoPin, LOW);
+                    }
+                    yield();
+                }
+                
                 pumpActive = false;
-                Serial.println("Pump OFF");
+                server.send(200, "application/json", "{\"status\":\"success\",\"pump1_duration\":" + String(durationPump1) + ",\"pump2_duration\":" + String(durationPump2) + "}");
                 return;
             }
         }

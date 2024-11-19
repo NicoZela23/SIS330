@@ -30,16 +30,18 @@ class PredictionService:
             confidence=confidence
         )
     
-    async def _control_servo(self, diseased_percentage: float) -> None:
-        angle = int((diseased_percentage * 100) / 1.7)
-        nodemcu_url = "http://192.168.71.147/servo/command"
+    async def control_pump(self, diseased_percentage: float) -> None:
+        mix1 = int((diseased_percentage * 100) / 1.7)
+        mix2 = mix1/2
+
+        nodemcu_url = "http://192.168.71.147/pump/action"
         
         async with httpx.AsyncClient() as client:
             try:
                 await client.post(
                     nodemcu_url,
-                    json={"angle": angle},
-                    timeout=angle/1000 + 5.0
+                    json={"mix1": mix1, "mix2": mix2},
+                    timeout=mix1/1000 + 5.0
                 )
             except Exception as e:
                 print(f"Servo control error: {str(e)}")
@@ -84,7 +86,7 @@ class PredictionService:
         non_healthy_conditions = [cond for cond in condition_list if cond != "healthy"]
         most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0]) if non_healthy_conditions else "healthy"
 
-        await self._control_servo(diseased_percentage)
+        await self.control_pump(diseased_percentage)
 
         return PlantHealthSummary(
             total_plants=total_plants,
