@@ -31,8 +31,7 @@ class PredictionService:
         )
     
     async def _control_servo(self, diseased_percentage: float) -> None:
-        # Convert percentage to angle (1000-10000 range)
-        angle = int((diseased_percentage * 100) / 1.7)  # Scale factor can be adjusted
+        angle = int((diseased_percentage * 100) / 1.7)
         nodemcu_url = "http://192.168.71.147/servo/command"
         
         async with httpx.AsyncClient() as client:
@@ -85,7 +84,6 @@ class PredictionService:
         non_healthy_conditions = [cond for cond in condition_list if cond != "healthy"]
         most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0]) if non_healthy_conditions else "healthy"
 
-        # Control servo based on disease percentage
         await self._control_servo(diseased_percentage)
 
         return PlantHealthSummary(

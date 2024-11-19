@@ -8,7 +8,6 @@ from fastapi import UploadFile
 from config.config import DEBUG, HOST, PORT
 from fastapi.middleware.cors import CORSMiddleware
 from routers.websocket_router import router
-from schemas.servo_command import ServoCommand
 
 app = FastAPI(debug=DEBUG)
 prediction_service = PredictionService()

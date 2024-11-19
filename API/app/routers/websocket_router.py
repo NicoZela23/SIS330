@@ -13,17 +13,10 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            # Receive frame data
             frame_data = await websocket.receive_text()
-            
             try:
-                # Decode the frame
                 frame_bytes = frame_processor.decode_frame(frame_data)
-                
-                # Process the frame
                 processed_frame = await heatmap_service.process_frame(frame_bytes)
-                
-                # Encode and send back the processed frame
                 response_data = frame_processor.encode_frame(processed_frame)
                 await websocket.send_text(response_data)
                 
