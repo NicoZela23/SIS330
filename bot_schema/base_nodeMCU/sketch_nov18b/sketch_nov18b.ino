@@ -8,8 +8,16 @@ const char* ssid = "xzt";
 const char* password = "#10315168#";
 const int port = 80;
 
+
+
 ESP8266WebServer server(port);
 volatile bool pumpActive = false;
+
+// Add these variables for non-blocking control
+unsigned long pumpOneEndTime = 0;
+unsigned long pumpTwoEndTime = 0;
+bool pumpOneRunning = false;
+bool pumpTwoRunning = false;
 
 void setup() {
     Serial.begin(115200);
@@ -46,27 +54,25 @@ void handlePumpControl() {
             int durationPump1 = doc["mix1"].as<int>();
             int durationPump2 = doc["mix2"].as<int>();
             
+            Serial.println("\nReceived pump durations:");
+            Serial.print("Pump 1 duration: ");
+            Serial.println(durationPump1);
+            Serial.print("Pump 2 duration: ");
+            Serial.println(durationPump2);
+            
             if (durationPump1 >= 1000 && durationPump1 <= 10000 && 
                 durationPump2 >= 1000 && durationPump2 <= 10000) {
                 
-                pumpActive = true;
-                unsigned long startTime = millis();
+                unsigned long currentTime = millis();
+                pumpOneEndTime = currentTime + durationPump1;
+                pumpTwoEndTime = currentTime + durationPump2;
                 
                 digitalWrite(pumpOnePin, HIGH);
                 digitalWrite(pumpTwoPin, HIGH);
+                pumpOneRunning = true;
+                pumpTwoRunning = true;
+                pumpActive = true;
                 
-                while (millis() - startTime < max(durationPump1, durationPump2)) {
-                    server.handleClient();
-                    if (millis() - startTime >= durationPump1) {
-                        digitalWrite(pumpOnePin, LOW);
-                    }
-                    if (millis() - startTime >= durationPump2) {
-                        digitalWrite(pumpTwoPin, LOW);
-                    }
-                    yield();
-                }
-                
-                pumpActive = false;
                 server.send(200, "application/json", "{\"status\":\"success\",\"pump1_duration\":" + String(durationPump1) + ",\"pump2_duration\":" + String(durationPump2) + "}");
                 return;
             }
@@ -75,7 +81,32 @@ void handlePumpControl() {
     server.send(400, "application/json", "{\"error\":\"Invalid request\"}");
 }
 
+void checkPumps() {
+    if (!pumpActive) return;
+    
+    unsigned long currentTime = millis();
+    
+    if (pumpOneRunning && currentTime >= pumpOneEndTime) {
+        digitalWrite(pumpOnePin, LOW);
+        pumpOneRunning = false;
+        Serial.println("Pump 1 stopped");
+    }
+    
+    if (pumpTwoRunning && currentTime >= pumpTwoEndTime) {
+        digitalWrite(pumpTwoPin, LOW);
+        pumpTwoRunning = false;
+        Serial.println("Pump 2 stopped");
+    }
+    
+    // Reset pumpActive when both pumps are done
+    if (!pumpOneRunning && !pumpTwoRunning) {
+        pumpActive = false;
+        Serial.println("All pumps stopped");
+    }
+}
+
 void loop() {
     server.handleClient();
+    checkPumps();
     yield();
 }

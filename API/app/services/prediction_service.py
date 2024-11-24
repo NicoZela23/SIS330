@@ -1,3 +1,4 @@
+import logging
 import httpx
 import torch
 from typing import List
@@ -7,6 +8,18 @@ from utils.image_utils import transform_image
 from config.config import IN_CHANNELS, NUM_DISEASES, CLASS_NAMES
 from schemas.prediction import parse_class_name, PredictionResult, PlantHealthSummary
 from fastapi import UploadFile
+import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('nodemcu_connection.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class PredictionService:
     def __init__(self):
@@ -33,21 +46,37 @@ class PredictionService:
     async def control_pump(self, diseased_percentage: float) -> None:
         mix1 = int((diseased_percentage * 100) / 1.7)
         mix2 = mix1/2
-
-        nodemcu_url = "http://192.168.71.147/pump/action"
+        nodemcu_url = "http://192.168.117.147/pump/action"
         
+        logger.info(f"Attempting to connect to NodeMCU at {nodemcu_url}")
+        logger.info(f"Sending mix values - mix1: {mix1}, mix2: {mix2}")
+        
+        start_time = time.time()
         async with httpx.AsyncClient() as client:
             try:
-                await client.post(
+                response = await client.post(
                     nodemcu_url,
                     json={"mix1": mix1, "mix2": mix2},
                     timeout=mix1/1000 + 5.0
                 )
+                
+                if response.status_code == 200:
+                    logger.info(f"NodeMCU Response: {response.text}")
+                else:
+                    logger.warning(f"NodeMCU returned non-200 status code: {response.status_code}")
+                    logger.warning(f"Response content: {response.text}")
+            
+            except httpx.ConnectError:
+                logger.error("Failed to connect to NodeMCU - Device might be offline or IP incorrect")
             except Exception as e:
-                print(f"Servo control error: {str(e)}")
-    
+                logger.error(f"Servo control error: {str(e)}")
+                logger.exception("Detailed error information:")
+
     async def analyze_batch(self, files: List[UploadFile]) -> PlantHealthSummary:
+        logger.info(f"Starting batch analysis of {len(files)} files")
+        
         if len(files) > 10:
+            logger.warning("Request exceeded maximum allowed files (10)")
             raise ValueError("Maximum 10 images allowed per request.")
 
         predictions = []
@@ -57,6 +86,7 @@ class PredictionService:
         condition_list = []
 
         for file in files:
+            logger.info(f"Processing file: {file.filename}")
             try:
                 prediction = await self.predict(file)
                 predictions.append({
@@ -71,21 +101,33 @@ class PredictionService:
                     healthy_count += 1
                 else:
                     diseased_count += 1
+                    
+                logger.info(f"Successfully processed {file.filename} - Condition: {prediction.condition}")
+                
             except Exception as e:
-                print(f"Error processing file {file.filename}: {str(e)}")
+                logger.error(f"Error processing file {file.filename}: {str(e)}")
+                logger.exception("Detailed error information:")
                 continue
 
         total_plants = len(predictions)
         if total_plants == 0:
+            logger.error("No valid predictions were made in the batch")
             raise ValueError("No valid predictions were made")
 
         healthy_percentage = (healthy_count / total_plants) * 100
         diseased_percentage = (diseased_count / total_plants) * 100
 
+        logger.info(f"Batch analysis complete - "
+                   f"Total: {total_plants}, "
+                   f"Healthy: {healthy_count}, "
+                   f"Diseased: {diseased_count}, "
+                   f"Diseased Percentage: {diseased_percentage:.2f}%")
+
         most_common_plant = str(Counter(plant_list).most_common(1)[0][0])
         non_healthy_conditions = [cond for cond in condition_list if cond != "healthy"]
         most_common_condition = str(Counter(non_healthy_conditions).most_common(1)[0][0]) if non_healthy_conditions else "healthy"
 
+        logger.info(f"Initiating pump control with diseased percentage: {diseased_percentage:.2f}%")
         await self.control_pump(diseased_percentage)
 
         return PlantHealthSummary(
